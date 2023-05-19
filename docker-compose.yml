@@ -1,0 +1,135 @@
+version: '3.4'
+
+networks:
+  kafka_net:
+    driver: bridge
+
+services:
+  init-kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+      - zookeeper
+      - broker4
+      - broker5
+      - broker6
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server broker4:9092 --list
+
+      echo -e 'Creating kafka topics'
+      
+      kafka-topics --bootstrap-server broker4:9092 --create --if-not-exists --topic topic1 --replication-factor 3  --partitions 24
+      kafka-topics --bootstrap-server broker4:9092 --create --if-not-exists --topic topic2 --replication-factor 3  --partitions 24
+      kafka-topics --bootstrap-server broker4:9092 --create --if-not-exists --topic topic3 --replication-factor 3  --partitions 24
+      
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server broker4:9092 --list
+      "
+    networks:
+      - kafka_net
+
+  kafkadotnetconsumer:
+    image: ${DOCKER_REGISTRY-}kafkadotnetconsumer:withloghandler
+    depends_on:
+      - zookeeper
+      - broker4
+      - broker5
+      - broker6
+    build:
+      context: .
+      dockerfile: KafkaDotNetConsumer/Dockerfile
+    networks:
+      - kafka_net
+      
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    ports:
+      - "12888:12888"
+      - "13888:13888"
+    environment:
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_PEER_PORT: 12888
+      ZOOKEEPER_LEADER_PORT: 13888
+      ZOOKEEPER_TICK_TIME: 2000
+      ALLOW_ANONYMOUS_LOGIN: yes
+      ZOO_LOG4J_PROP: DEBUG
+      ZOOKEEPER_SERVERS: "zookeeper:12888:13888"
+    volumes:
+      - ./zoo/data:/var/lib/zookeeper/data
+      - ./zoo/log:/var/lib/zookeeper/log
+    networks:
+      - kafka_net
+      
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    restart: always
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=broker4:9092,broker5:9092,broker6:9092
+    depends_on:
+      - broker4
+      - broker5
+      - broker6
+      - zookeeper
+    networks:
+      - kafka_net
+      
+  broker4:
+    image: confluentinc/cp-kafka:7.3.0
+    ports:
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 4
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker4:9092,PLAINTEXT_INTERNAL://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_zookeeper_CONNECTION_TIMEOUT_MS: 18000
+    networks:
+      - kafka_net
+
+  broker5:
+    image: confluentinc/cp-kafka:7.3.0
+    ports:
+      - "29093:29093"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 5
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker5:9092,PLAINTEXT_INTERNAL://localhost:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_zookeeper_CONNECTION_TIMEOUT_MS: 18000
+    networks:
+      - kafka_net
+      
+  broker6:
+    image: confluentinc/cp-kafka:7.3.0
+    ports:
+      - "29094:29094"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 6
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker6:9092,PLAINTEXT_INTERNAL://localhost:29094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_zookeeper_CONNECTION_TIMEOUT_MS: 18000
+    networks:
+      - kafka_net
