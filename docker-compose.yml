@@ -31,7 +31,7 @@ services:
       - kafka_net
 
   kafkadotnetconsumer:
-    image: ${DOCKER_REGISTRY-}kafkadotnetconsumer:withloghandler
+    image: ${DOCKER_REGISTRY-}kafkadotnetconsumer
     depends_on:
       - zookeeper
       - broker4
